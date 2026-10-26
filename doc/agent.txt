@@ -1,0 +1,507 @@
+*agent.txt*	在 Vim 里使用 Agent				*Agent* *agent*
+
+插件		~/.vim/plugin/agent.vim
+程序		~/.local/bin/agent
+改过插件后重新打开 Vim。已经打开的 Agent 窗口要关掉再开，才会用到新进程。
+
+    1. 两种状态			|agent-mode|
+    2. 打开			|agent-open|
+    3. 分屏切换			|agent-split|
+    4. 标签切换			|agent-tab|
+    5. 隐藏和恢复		|agent-hide|
+    6. 发送和复制		|agent-paste|
+    7. 回看输出			|agent-scroll|
+    8. 以前的会话		|agent-history|
+    9. 光标和鼠标		|agent-mouse|
+   10. 不要按错的键		|agent-keys|
+   11. 使用技巧		|agent-tips|
+   12. 命令行总览		|agent-cli|
+   13. 启动与登录		|agent-cli-auth|
+   14. 交互按键		|agent-cli-keys|
+   15. 斜杠命令		|agent-cli-slash|
+   16. 上下文与规则		|agent-cli-context|
+   17. 会话			|agent-cli-session|
+   18. 脚本与打印		|agent-cli-print|
+   19. 工作区与权限		|agent-cli-perm|
+   20. 其它子命令		|agent-cli-sub|
+
+==============================================================================
+1. 两种状态						*agent-mode*
+
+Terminal-Job ~
+状态栏没有 (Terminal)。按键全部交给 Agent，用来对话。刚打开时就是这个状态。
+
+Terminal-Normal ~
+状态栏显示 (Terminal)。按键交给 Vim，用来翻页和复制。
+
+    进入 Terminal-Normal	Ctrl-\
+    回到 Terminal-Job		i 或 a
+
+Esc 不会离开这个窗口，它会送给 Agent。
+
+==============================================================================
+2. 打开						*agent-open* *:Agent* *:AgentTab*
+
+:Agent			当前标签右侧分屏，宽度大约三分之一。
+空格 a			与 :Agent 相同。只在编辑区和 Terminal-Normal 里有效。
+:AgentTab		放到新建标签里，占满该标签。
+:AgentHide		在代码窗口隐藏 Agent，进程继续跑。	*:AgentHide*
+
+第一次启动可以带参数。窗口已经存在时，再写参数不会另开一个。 >
+
+    :Agent --continue		接着最近一次对话
+    :Agent ls			列出历史对话再选
+    :AgentTab --continue	在新标签里打开最近一次
+<
+已经有 Agent 时，:AgentTab 会把现有窗口挪进标签，或切到已有的 Agent 标签。
+
+							*g:agent_exe*
+可执行文件默认 ~/.local/bin/agent。在 vimrc 里可以改: >
+
+    let g:agent_exe = '/path/to/agent'
+<
+==============================================================================
+3. 分屏切换						*agent-split*
+
+Agent 在右边，代码在左边。Agent 正在输出时不用等它结束。
+Ctrl-W 由 Vim 截下来，后面的字母不会打进 Agent。
+
+    代码窗口 → Agent		Ctrl-W l，或空格 a
+    Agent → 左边代码		Ctrl-W h
+    Agent → 上一个窗口		Ctrl-W p
+    只有两个窗口时对调		Ctrl-W 按两次
+
+回到代码窗口后是普通模式。Agent 改过的文件，执行 :e 重新读入。
+
+下面这些键不能用来切窗口:
+
+    H 和 L		行首、行尾
+    空格 q		关掉当前窗口。Agent 还在跑时，这会结束进程
+    空格 o		只留当前窗口，另一侧会被关掉
+
+==============================================================================
+4. 标签切换						*agent-tab*
+
+Agent 正在工作时，单独按 gt 会打给 Agent，切不了标签。
+
+    下一个标签		Ctrl-W gt
+    上一个标签		Ctrl-W gT
+    第 N 个标签		N 然后 Ctrl-W gt
+
+只有编辑和 Agent 两个标签时，在 Agent 里按一次 Ctrl-W gt 就回到编辑。
+Agent 继续在原来的标签里跑。
+
+从编辑标签回去：普通模式下按 gt 或 gT，或执行 :AgentTab。
+
+==============================================================================
+5. 隐藏和恢复						*agent-hide*
+
+    隐藏并继续跑	在代码窗口执行 :AgentHide
+			也可在 Agent 窗口按 Ctrl-W，再输入 :hide
+    右侧再打开		在编辑区执行 :Agent
+    新建标签再打开	在编辑区执行 :AgentTab
+    结束进程		:q、空格 q，或 Ctrl-W 然后 Ctrl-C
+
+Agent 如果已经是当前标签里最后一个窗口，:hide 不会把它关掉。
+
+==============================================================================
+6. 发送和复制						*agent-paste*
+
+把代码发给 Agent：在代码窗口选中后按 y。切到 Agent（Terminal-Job）后按
+Ctrl-W " 再按 "，贴进输入框。
+
+从输出里复制：按 Ctrl-\ 进入 Terminal-Normal，用 v 选中再 y，回到代码窗口
+后 p。要继续对话，在 Agent 窗口按 i。
+
+==============================================================================
+7. 回看输出						*agent-scroll*
+
+长对话默认只画最近几轮。在输入框输入下面这行并回车，更早的内容会重新画出来: >
+
+    /full-conversation
+<
+然后按 Ctrl-\，状态栏出现 (Terminal) 后翻页:
+
+    Ctrl-B		上一页
+    Ctrl-F		下一页
+    Ctrl-U / Ctrl-D	半页
+    gg			到保留内容的最上面
+    G			回到最下面
+
+看完按 i，回到 Agent 当前这一屏。Vim 默认保留滚出顶部的 10000 行。
+
+输入框里的向上方向键只翻出以前输入过的问题，不含 Agent 的回答。
+Ctrl-L 会清掉屏幕和可以回翻的内容，这次对话还在。
+
+Agent 是整屏重画。正在生成时，回滚区里有时会叠上重复画面。等这轮输出结束
+再翻，会清楚一些。
+
+==============================================================================
+8. 以前的会话						*agent-history*
+
+    /resume			在 Agent 输入框，从列表里选一次旧对话
+    :Agent --continue		还没开 Agent 时，打开最近一次
+    :Agent ls			还没开 Agent 时，先列出再选
+    :AgentTab --continue	在新标签里打开最近一次
+
+/rewind 会把对话和文件退回到以前某一轮。只是查看时不要用。
+
+==============================================================================
+9. 光标和鼠标						*agent-mouse*
+
+Agent 窗口里的鼠标是单独打开的，点底部输入框会把点击交给 Agent。回到代码
+窗口后，鼠标恢复为原来的关闭状态。
+
+这个窗口看起来像插入模式，是因为按键整段交给 Agent。光标应在底部输入框。
+若仍停在左上角：按 Ctrl-\，再按 G，再按 i。
+
+==============================================================================
+10. 不要按错的键					*agent-keys*
+
+    Ctrl-C			Terminal-Job 里发给 Agent，由它处理中断
+    Ctrl-W Ctrl-C		Vim 强制结束 Agent
+    Ctrl-W .			把一个 Ctrl-W 发给 Agent。平时切窗口不用
+    /quit			Agent 自己退出
+
+==============================================================================
+11. 使用技巧						*agent-tips*
+
+让它一边跑，自己一边改代码 ~
+问完一句就在代码窗口执行 :AgentHide。Agent 继续在后台做，屏幕只留编辑区。
+要看结果时再执行 :Agent 或 :AgentTab，还是同一次对话。
+标签模式下，Ctrl-W gt 切去写代码，效果相同，窗口不必先隐藏。
+
+只问或不让它改文件 ~
+在输入框输入 /ask 再提问，Agent 只回答，不改文件。
+输入 /plan 只出方案。改完想看动了哪些文件，在输入框按 Ctrl-R。
+
+把范围说清楚 ~
+选中代码后 y，到 Agent 里按 Ctrl-W " " 贴进去，比只说「这段」准。
+问题里写上路径和行号，例如 hal_apollo/scan.c 第 120 行。
+多行问题用 Ctrl-J 换行，单独按回车才会发送。
+
+回看时少走弯路 ~
+长回答先在输入框输入 /full-conversation，再按 Ctrl-\ 翻页。
+正在生成时先别翻，等这轮结束，回滚区里才不会叠着重复画面。
+向上方向键只翻出自己以前的提问。要看回答，用 Ctrl-B 和 gg。
+某一轮回答想抄下来，输入 /copy，比在画面上拖选干净。
+
+对话太长或要换话题 ~
+上下文太长时输入 /summarize，把前面的对话压短。
+换一个不相干的任务时输入 /clear。旧对话还在，用 /resume 可以找回来。
+/rewind 会把文件也退回去，只是想再看一遍时不要用。
+Ctrl-L 会清掉可以回翻的画面，对话本身还在。
+
+改完文件回到代码窗口 ~
+执行 :e 重新读入。没有 :e 时，窗口里仍是 Agent 改之前的内容。
+
+输入框里的 Vim 键位 ~
+输入 /vim 后，输入框可以用 h j k l、dd、cw。这只管正在打的那一行字。
+上面的输出仍用 Ctrl-\ 进入 Terminal-Normal 再翻。
+
+Agent 自己的命令 ~
+在输入框输入 /help，列出当前版本的斜杠命令。下面从 |agent-cli| 起，
+是终端程序 agent 的用法，不是 Vim 窗口命令。
+
+==============================================================================
+12. 命令行总览						*agent-cli*
+
+这里讲的是终端里的 agent 程序（本机 2026.10.19）。前面 1–11 节是 Vim
+窗口。在 Agent 输入框里打的 /plan、/ask 属于这个程序；:Agent 属于 Vim。
+
+不写子命令时，agent 进入交互界面，当前目录就是工作区。>
+
+    agent
+    agent "看 scan.c 里扫描超时是怎么处理的"
+    agent --mode ask "这个函数会改寄存器吗"
+    agent --plan "给关联失败补一条日志，先出方案"
+<
+查看某一条子命令: >
+
+    agent --help
+    agent help mcp
+    agent -v
+<
+官方说明在 https://cursor.com/docs/cli/overview 。版本更新后以本机
+agent --help 和输入框里的 /help 为准。
+
+==============================================================================
+13. 启动与登录					*agent-cli-auth*
+
+安装（Linux）: >
+
+    curl https://cursor.com/install -fsS | bash
+<
+装好后一般在 ~/.local/bin/agent。
+
+    agent login			浏览器登录
+    agent logout		退出并清掉本机保存的登录
+    agent status		看当前账号。whoami 是同一个命令
+    agent status --format json
+    agent about			版本、系统、当前模型、账号
+    agent about --format json
+    agent update		升级到最新 CLI
+    agent models		列出这个账号能用的模型
+    agent --list-models		同上，列完就退出
+
+不弹出浏览器: >
+
+    NO_OPEN_BROWSER=1 agent login
+<
+
+脚本里用 API key，不要把 key 写进仓库: >
+
+    export CURSOR_API_KEY=...
+    agent -p "这个仓库的扫描入口在哪"
+<
+--api-key 与 CURSOR_API_KEY 相同。换服务地址用 --endpoint，或环境变量
+CURSOR_API_ENDPOINT。-H / --header 'Name: Value' 可重复，给请求加头。
+
+多团队时: >
+
+    agent team list
+    agent team switch
+    agent team switch 团队名或id
+<
+switch 不带参数时在列表里选。换团队后，模型和设置按该团队计算。
+
+==============================================================================
+14. 交互按键					*agent-cli-keys*
+
+这些键打在 Agent 自己的界面里。若外面包着 Vim 终端，先确认状态栏没有
+(Terminal)，否则键会先被 Vim 吃掉。见 |agent-mode|。
+
+    回车		发送当前输入
+    Ctrl-J		换行，不发送。tmux 里用这个
+    Shift-Enter	部分终端里的换行。tmux 里通常无效
+    向上		翻出以前输入过的问题，不含回答
+    Shift-Tab	在 Agent、Plan、Ask 之间轮换
+    Ctrl-R		查看这轮改过的文件
+			上下翻内容，左右换文件，i 接着补充要求
+    Ctrl-C		打断当前这一轮
+    Ctrl-D		连按两次退出
+    /quit		退出。/exit 相同
+    !			空行上单独一个 !，进入 Shell 模式
+    @		后面接文件或目录，把它们放进上下文
+    &		一条消息开头加 &，交给云端 Agent 接着跑
+			回来在 cursor.com/agents 看
+
+Shell 模式也可以用 /shell、/sh、/run。里面跑的是本机命令。
+
+改文件前，终端命令默认要确认，y 允许，n 拒绝。
+
+==============================================================================
+15. 斜杠命令					*agent-cli-slash*
+
+在输入框输入 / 会弹出列表，方向键选择，回车执行。/help 看总表，
+/help 命令名 看一条。下面是本机这一版里常用的。
+
+模式 ~
+							*agent-cli-mode*
+    /ask			只问答。不改文件，也不跑命令。再打一次关闭
+    /plan [问题]		先出方案。可带问题，也可只切换后再问
+    /debug [问题]		调试模式。可切换，也可直接带问题提交
+    /goal 目标		给一个要一直做到完的目标
+    Shift-Tab		在 Agent、Plan、Ask 之间轮换
+
+启动时也可以定死模式，不必进界面再切: >
+
+    agent --mode ask "mlme 里认证失败会走到哪"
+    agent --plan "只读，先列出要改的函数"
+    agent --mode plan "同上"
+<
+Ask 适合查代码。Plan 适合先对齐改法。普通 agent 会搜代码、改文件、跑命令。
+
+模型 ~
+    /model [过滤词]		选模型。Tab 可编辑
+    /fast			开关当前模型的 fast
+    /max-mode		旧的按请求计费方案里开关 Max Mode
+
+启动时指定模型。带参数的模型用引号包住方括号: >
+
+    agent --model gpt-5 "看一下编译选项"
+    agent --model 'claude-opus-4-8[context=1m,effort=high,fast=false]'
+<
+对话 ~
+    /clear			新开一轮。/new、/new-chat、/newchat 相同
+    /resume			列出最近的对话并选一个接着聊
+    /fork			从当前对话分出一轮新的
+    /rename 名字		给当前对话改名
+    /summarize		把前文压短，腾出上下文。/compress、/compact 相同
+    /rewind			退回到以前某一条消息。用来撤销，不是用来浏览
+    /copy			把以前某条消息复制出来。/clipboard、/paste 相同
+    /btw 问题		旁边问一句。回答不写入这轮历史
+    /full-conversation	画面被截断后，重新把整段对话画出来
+
+执行 ~
+    /run-everything [on|off|status]
+			命令不再逐条确认。/auto-run 相同
+    /auto-review [on|off|status]
+			安全的工具调用自动放行，其余仍要确认。/smart-auto 相同
+    /shell [命令]		进入 Shell 模式。/sh、/run 相同
+    /sandbox		看或改沙箱和网络访问
+
+界面 ~
+    /vim			输入框里用 hjkl、dd、cw。不管输出区翻页
+    /zen-mode		工具调用收成一行。/zen 相同
+    /line-numbers		代码块行号
+    /show-thinking		思考过程显示开关
+    /status-indicators	终端标题里的状态
+    /static-indicator [on|off|toggle|status]
+    /setup-terminal		配置换行键
+    /config			交互式改 CLI 设置
+    /about			版本、系统和账号，并复制到剪贴板
+    /logs			调试日志路径
+    /update			升级 CLI
+    /feedback 内容		把反馈发给 Cursor
+    /open			用 Cursor 打开仓库根目录。/cursor 相同
+    /quit			退出。/exit 相同
+    /logout			退出登录
+
+在 / 列表里选中一条技能后回车，只挂到这一条消息。Option-Enter
+（Linux 上常是 Alt-Enter）会把它收成自定义模式，直到退出该模式。
+
+==============================================================================
+16. 上下文与规则					*agent-cli-context*
+
+用 @ 把范围收窄，比整仓让它自己搜更稳: >
+
+    @hal_apollo/mac80211/scan.c 看隐藏 ssid 的匹配
+    @hal_apollo/mac80211 关联失败时日志从哪打
+<
+图片、补丁也写路径，它会自己去读: >
+
+    agent -p "对照 ./screenshot.png 和 scan.c 里的打印"
+<
+项目规则和编辑器相同，会自动带上:
+
+    .cursor/rules	按规则文件自己的配置生效
+    AGENTS.md		仓库根目录，有就用
+    CLAUDE.md		仓库根目录，有就用
+
+上下文太长时用 /summarize。/full-conversation 只影响画面，不减少上下文。
+
+一条消息开头加 &，把任务交给云端 Agent，本机可以关掉。之后到
+cursor.com/agents 继续。
+
+==============================================================================
+17. 会话						*agent-cli-session*
+
+    agent			新的交互会话
+    agent resume		打开最近一次
+    agent --continue	同上
+    agent ls		先列出，再选一次旧的
+    agent --resume 会话id	指定某一次
+    /resume			已经在界面里时用这个
+    agent create-chat	只创建空会话并打印 id，不进入界面
+
+持久会话，终端或 SSH 断开后还在: >
+
+    agent persist "把扫描超时的日志补全"
+    agent persist list
+    agent persist attach 会话
+    agent persist stop 会话
+<
+界面里 /detach 是离开但保持这个持久会话继续跑。
+
+/rewind 会回到以前某一条消息，适合撤销走错的一轮。只想再看内容时，
+用 /full-conversation 和翻页，不要用 /rewind。
+
+==============================================================================
+18. 脚本与打印					*agent-cli-print*
+
+-p / --print 不进入界面，把结果打到标准输出，给脚本和 CI 用。
+本机帮助写明：这种模式可以使用写文件和 shell。>
+
+    agent -p "这个驱动的扫描入口在哪个文件"
+    agent -p --mode ask "只解释，不要改文件"
+    agent -p --force "给 scan.c 的超时路径补一行日志"
+    agent -p --output-format json "列出和隐藏 ssid 相关的函数"
+<
+--force 让命令不必逐条确认（明确拒绝的除外）。--yolo 是同一个选项。
+脚本里要直接改仓库时加上它。只想要回答时用 --mode ask，不要加 --force。
+
+--output-format 只能和 --print 一起用:
+
+    text		默认。最后的回答
+    json		一整段结构化结果
+    stream-json	按事件往外吐，便于看进度
+
+stream-json 再加 --stream-partial-output，会把未完成的文本也一段段打出。
+
+--trust 跳过工作区信任提示，只适合无界面。--approve-mcps 自动批准
+已配置的 MCP。
+
+--auto-review 用服务端分类：安全的工具调用直接跑，其余仍询问。
+
+==============================================================================
+19. 工作区与权限					*agent-cli-perm*
+
+默认工作区是当前目录。>
+
+    agent --workspace /path/to/repo
+    agent --workspace 已保存的工作区名
+    agent --add-dir /path/to/other
+<
+--add-dir 可重复，多加一个根目录。
+
+在单独的 git worktree 里改，不动当前检出: >
+
+    agent --worktree "修扫描超时"
+    agent --worktree scan-timeout "同上，目录名固定"
+    agent --worktree-base 分支名 --worktree fix "从该分支拉 worktree"
+    agent --skip-worktree-setup --worktree "跳过 .cursor/worktrees.json"
+<
+目录在 ~/.cursor/worktrees/<仓库名>/<名字>。省略名字时自动生成。
+
+沙箱: >
+
+    agent --sandbox enabled
+    agent --sandbox disabled
+<
+界面里用 /sandbox 看当前网络访问是只认 sandbox.json，还是再加上默认名单。
+
+--plugin-dir 路径 可重复，加载本地插件目录。
+
+==============================================================================
+20. 其它子命令					*agent-cli-sub*
+
+日常够用的是 login、status、about、models、ls、resume、update。
+其余子命令: >
+
+    agent mcp list
+    agent mcp list-tools 名字
+    agent mcp enable 名字
+    agent mcp disable 名字
+    agent mcp login 名字
+<
+MCP 配置在项目或 ~/.cursor/mcp.json。界面里用 /mcp list 和
+/mcp list-tools 名字。
+
+    agent plugin marketplace list
+    agent plugin marketplace add git地址
+    agent plugin marketplace update 名字或地址
+    agent plugin marketplace remove 名字或地址
+    /plugin list
+
+    agent generate-rule
+    agent rule
+生成一条 Cursor rule，按提示填写。
+
+    agent install-shell-integration
+    agent uninstall-shell-integration
+写进或去掉 ~/.zshrc 里的 shell 集成。
+
+    agent bedrock status
+    agent bedrock configure
+AWS Bedrock。未启用时不必管。界面里有 /bedrock。
+
+    agent worker start
+    agent worker --help
+在本机跑 Cloud Agent 的 worker。个人机器用 start；团队池要 Enterprise
+和服务账号。参数很多，以 agent worker --help 为准。
+
+    agent acp
+给自定义客户端的 ACP 服务，走 stdio。普通对话不用。
+
+ vim:tw=78:ts=8:ft=help:norl:
